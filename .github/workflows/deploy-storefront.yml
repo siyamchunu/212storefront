@@ -28,7 +28,7 @@ jobs:
         run: npm run build # Builds the application on the GitHub Actions runner
 
       - name: Transfer built files to EC2
-        uses: appleboy/scp-action@v1.0.1 # Use SCP action to copy files
+        uses: appleboy/scp-action@v0.1.7 # Use SCP action to copy files
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
@@ -38,7 +38,7 @@ jobs:
           strip_components: 1 # Remove the leading directory component if copying from a subdirectory
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3 # Or latest version
+        uses: appleboy/ssh-action@v1.0.0 # Or latest version
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
