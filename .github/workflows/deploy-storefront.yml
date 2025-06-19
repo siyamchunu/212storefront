@@ -16,6 +16,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4 # This checks out the repo where the workflow file resides
 
+      - name: List files in 212storefront directory # DEBUGGING STEP
+        run: |
+          echo "Listing contents of $GITHUB_WORKSPACE/212storefront:"
+          ls -la $GITHUB_WORKSPACE/212storefront
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
