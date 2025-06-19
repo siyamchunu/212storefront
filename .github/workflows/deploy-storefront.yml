@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: '20' # Specify the Node.js version your project uses
           cache: 'npm' # Optional: Caches npm dependencies
-          cache-dependency-path: '212storefront/package-lock.json' # Or yarn.lock
+          cache-dependency-path: '212storefront/yarn.lock' # Or package-lock.json if you use npm
 
       - name: Install dependencies
         working-directory: ./212storefront # Specify the working directory
