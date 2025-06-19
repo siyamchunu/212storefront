@@ -6,7 +6,7 @@ on:
       - main # Or your primary deployment branch for storefront
     paths: # Only run if files in these paths change
       - '212storefront/**' # Adjust if it's in a monorepo, e.g., 'apps/storefront/**'
-      - '.github/workflows/deploy-storefront.yaml'
+      - '.github/workflows/main.yaml'
   workflow_dispatch: # Allows manual triggering
 
 jobs:
