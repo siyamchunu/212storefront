@@ -20,12 +20,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20' # Specify the Node.js version your project uses
+          cache: 'npm' # Optional: Caches npm dependencies
+          cache-dependency-path: '212storefront/package-lock.json' # Or yarn.lock
 
       - name: Install dependencies
-        run: npm install # Installs dependencies on the GitHub Actions runner
+        working-directory: ./212storefront # Specify the working directory
+        run: npm install
 
       - name: Build storefront
-        run: npm run build # Builds the application on the GitHub Actions runner
+        working-directory: ./212storefront # Specify the working directory
+        run: npm run build
 
       - name: Transfer built files to EC2
         uses: appleboy/scp-action@v0.1.7 # Use SCP action to copy files
@@ -33,7 +37,9 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: ".next/,public/,package.json,yarn.lock" # Specify files/directories to copy. Adjust lock file (yarn.lock/package-lock.json) as needed.
+          # Source paths are now relative to the repository root, pointing into the subdirectory
+          # strip_components: 1 will remove '212storefront/' from the path when copying
+          source: "212storefront/.next/,212storefront/public/,212storefront/package.json,212storefront/yarn.lock" # Adjust lock file as needed
           target: "/var/www/212manager-app/212storefront" # Destination directory on EC2
           strip_components: 1 # Remove the leading directory component if copying from a subdirectory
 
