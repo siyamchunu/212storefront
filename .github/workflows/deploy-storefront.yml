@@ -6,7 +6,7 @@ on:
       - main # Or your primary deployment branch for storefront
     paths: # Only run if files in these paths change
       - '212storefront/**' # Adjust if it's in a monorepo, e.g., 'apps/storefront/**'
-      - '.github/workflows/main.yaml'
+      - '.github/workflows/deploy-storefront.yml' # Corrected path to this workflow file
   workflow_dispatch: # Allows manual triggering
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: '20' # Specify the Node.js version your project uses
           cache: 'npm' # Optional: Caches npm dependencies
-          cache-dependency-path: '212storefront/yarn.lock' # Or package-lock.json if you use npm
+          cache-dependency-path: '212storefront/package-lock.json' # Use package-lock.json for npm projects
 
       - name: Install dependencies
         working-directory: ./212storefront # Specify the working directory
@@ -39,7 +39,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           # Source paths are now relative to the repository root, pointing into the subdirectory
           # strip_components: 1 will remove '212storefront/' from the path when copying
-          source: "212storefront/.next/,212storefront/public/,212storefront/package.json,212storefront/yarn.lock" # Adjust lock file as needed
+          source: "212storefront/.next/,212storefront/public/,212storefront/package.json,212storefront/package-lock.json" # Copy package-lock.json for npm
           target: "/var/www/212manager-app/212storefront" # Destination directory on EC2
           strip_components: 1 # Remove the leading directory component if copying from a subdirectory
 
@@ -57,6 +57,9 @@ jobs:
             
             # Files are already copied by the SCP action
             echo "Files transferred to $(pwd)"
+            
+            echo "Installing production dependencies on EC2..."
+            npm install --omit=dev # Or npm install --production
             
             echo "Creating .env file from secret..."
             echo "${{ secrets.STOREFRONT_ENV }}" > .env
