@@ -1,0 +1,108 @@
+name: Deploy 212Storefront to EC2
+
+on:
+  push:
+    branches:
+      - main # Or your primary deployment branch
+  workflow_dispatch: # Allows manual triggering from the Actions tab
+s
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      APP_DIR_EC2: "/var/www/212manager-app/212storefront"
+      ARTIFACT_NAME: "storefront_artifact.tar.gz"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Match Node.js version on your EC2 instance
+          cache: 'npm'
+          cache-dependency-path: package-lock.json # Assuming package-lock.json is at the repo root
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p deploy_artifact
+          cp -R .next deploy_artifact/
+          if [ -d "public" ]; then cp -R public deploy_artifact/; fi
+          cp package.json deploy_artifact/
+          cp package-lock.json deploy_artifact/
+          # Add any other necessary runtime files here (e.g., custom server.js)
+          tar -czf ${{ env.ARTIFACT_NAME }} -C deploy_artifact .
+
+      - name: Copy artifact to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: "${{ env.ARTIFACT_NAME }}"
+          target: "/tmp/" # Deploy to a temporary directory on EC2
+
+      - name: Create .env file on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            # Ensure the target directory for .env exists
+            sudo mkdir -p ${{ env.APP_DIR_EC2 }}
+            sudo chown ${{ secrets.EC2_USER }}:${{ secrets.EC2_USER }} ${{ env.APP_DIR_EC2 }}
+            echo "${{ secrets.STOREFRONT_ENV_PROD }}" > ${{ env.APP_DIR_EC2 }}/.env
+            echo ".env file created on EC2."
+
+      - name: Deploy application on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e # Exit immediately if a command exits with a non-zero status.
+            TMP_ARTIFACT_PATH="/tmp/${{ env.ARTIFACT_NAME }}"
+
+            echo "Ensuring application directory exists and has correct permissions..."
+            sudo mkdir -p ${{ env.APP_DIR_EC2 }}
+            sudo chown ${{ secrets.EC2_USER }}:${{ secrets.EC2_USER }} ${{ env.APP_DIR_EC2 }}
+
+            cd ${{ env.APP_DIR_EC2 }}
+
+            echo "Cleaning up old application files..."
+            # Remove specific directories/files that will be replaced by the artifact
+            # This avoids stale files. .env is managed separately.
+            rm -rf .next/ public/ node_modules/ package.json package-lock.json
+
+            echo "Extracting new artifact..."
+            # Extract artifact from /tmp into the application directory
+            tar -xzf ${TMP_ARTIFACT_PATH} -C ${{ env.APP_DIR_EC2 }}
+            rm ${TMP_ARTIFACT_PATH} # Clean up the tarball from /tmp
+
+            echo "Installing production dependencies..."
+            # Ensure Node.js/npm are in PATH for ec2-user.
+            # The EC2 setup script already installs Node.js 20.
+            npm ci --only=production --ignore-scripts
+
+            echo "Restarting application with PM2..."
+            # These commands should run as the EC2_USER
+            pm2 delete 212storefront || true # Stop and delete existing process if any
+            pm2 start npm --name "212storefront" -- run start # Start the app using npm start script
+            
+            # Persist PM2 process list across server reboots
+            pm2 save 
+            
+            pm2 list
+            echo "Deployment of 212storefront completed successfully."
