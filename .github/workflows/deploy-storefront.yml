@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - main # Or your primary deployment branch for storefront
-    paths: # Only run if files in these paths change
-      - '212storefront/**' # Adjust if it's in a monorepo, e.g., 'apps/storefront/**'
+    paths: # Only run if files in these paths change - these paths are relative to the repo root (which is 212storefront/)
+      - '**' # Trigger on any change within the 212storefront directory
       - '.github/workflows/deploy-storefront.yml' # Corrected path to this workflow file
   workflow_dispatch: # Allows manual triggering
 
@@ -17,23 +17,24 @@ jobs:
         uses: actions/checkout@v4 # This checks out the repo where the workflow file resides
 
       - name: List files in 212storefront directory # DEBUGGING STEP
+        # This will now list the root of your repository (which is the content of 212storefront)
         run: |
-          echo "Listing contents of $GITHUB_WORKSPACE/212storefront:"
-          ls -la $GITHUB_WORKSPACE/212storefront
+          echo "Listing contents of $GITHUB_WORKSPACE:"
+          ls -la $GITHUB_WORKSPACE
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20' # Specify the Node.js version your project uses
           cache: 'npm' # Optional: Caches npm dependencies
-          cache-dependency-path: '212storefront/package-lock.json' # Use package-lock.json for npm projects
+          cache-dependency-path: 'package-lock.json' # Path relative to repo root (which is $GITHUB_WORKSPACE)
 
       - name: Install dependencies
-        working-directory: ./212storefront # Specify the working directory
+        # No working-directory needed as we are already in the project root
         run: npm install
 
       - name: Build storefront
-        working-directory: ./212storefront # Specify the working directory
+        # No working-directory needed
         run: npm run build
 
       - name: Transfer built files to EC2
@@ -42,11 +43,9 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          # Source paths are now relative to the repository root, pointing into the subdirectory
-          # strip_components: 1 will remove '212storefront/' from the path when copying
-          source: "212storefront/.next/,212storefront/public/,212storefront/package.json,212storefront/package-lock.json" # Copy package-lock.json for npm
+          source: ".next/,public/,package.json,package-lock.json" # Paths relative to $GITHUB_WORKSPACE
           target: "/var/www/212manager-app/212storefront" # Destination directory on EC2
-          strip_components: 1 # Remove the leading directory component if copying from a subdirectory
+          # strip_components is no longer needed as source paths are direct
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0 # Or latest version
